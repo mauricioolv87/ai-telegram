@@ -29,12 +29,35 @@ def extract_node(state: ExpenseState) -> ExpenseState:
         state['expense_data'] = expense
         
         amount = abs(expense.amount_cents) / 100
-        state['messages'].append(
-            f"✅ Dados extraídos:\n"
-            f"💰 R$ {amount:.2f}\n"
-            f"📝 {expense.description}\n"
+        
+        # Monta mensagem com informações
+        msg_parts = [
+            "✅ Dados extraídos:",
+            f"💰 R$ {amount:.2f}",
+            f"📝 {expense.description}",
             f"📅 {expense.date}"
-        )
+        ]
+        
+        # Adiciona categoria se identificada
+        if expense.category_id:
+            categories = organizze_client.get_categories()
+            category = next((c for c in categories if c.id == expense.category_id), None)
+            if category:
+                msg_parts.append(f"📂 Categoria: {category.name}")
+        
+        # Adiciona forma de pagamento
+        if expense.credit_card_id:
+            cards = organizze_client.get_credit_cards()
+            card = next((c for c in cards if c.id == expense.credit_card_id), None)
+            if card:
+                msg_parts.append(f"💳 Cartão: {card.name}")
+        elif expense.account_id:
+            accounts = organizze_client.get_accounts()
+            account = next((a for a in accounts if a.id == expense.account_id), None)
+            if account:
+                msg_parts.append(f"🏦 Conta: {account.name}")
+        
+        state['messages'].append("\n".join(msg_parts))
         return state
     except Exception as e:
         state['error'] = f"Erro na extração: {str(e)}"
