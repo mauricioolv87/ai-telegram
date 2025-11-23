@@ -44,4 +44,6 @@ jobs:
             --allow-unauthenticated \
             --set-env-vars TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
             --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            --set-env-vars ORGANIZZE_TOKEN=${{ secrets.ORGANIZZE_TOKEN }} \
+            --set-env-vars ORGANIZZE_EMAIL=${{ secrets.ORGANIZZE_EMAIL }} \
             --port 8080
