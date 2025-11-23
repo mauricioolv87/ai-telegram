@@ -12,7 +12,7 @@ Exemplo: 'Gastei 50 reais no supermercado hoje'
 Ou: 'Paguei 120 reais de academia por boleto dia 15'
 """
 
-PROCESSING_MESSAGE = "🎧 Processando seu áudio..."
+PROCESSING_MESSAGE = "⏳ Processando..."
 
 def format_success(messages: list) -> str:
     return "\n\n".join(messages)
