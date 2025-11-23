@@ -1,0 +1,47 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: ["main"]
+
+env:
+  SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+  REGION: ${{ secrets.REGION }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  IMAGE: ${{ secrets.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-repo/ai-telegram
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up gcloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for gcloud
+        run: gcloud auth configure-docker ${{ secrets.REGION }}-docker.pkg.dev
+
+      - name: Build Docker image
+        run: |
+          docker build -t $IMAGE:${{ github.sha }} .
+
+      - name: Push image
+        run: |
+          docker push $IMAGE:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy $SERVICE_NAME \
+            --image $IMAGE:${{ github.sha }} \
+            --region $REGION \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
+            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            --port 8080
