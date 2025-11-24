@@ -46,4 +46,5 @@ jobs:
             --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
             --set-env-vars ORGANIZZE_TOKEN=${{ secrets.ORGANIZZE_TOKEN }} \
             --set-env-vars ORGANIZZE_EMAIL=${{ secrets.ORGANIZZE_EMAIL }} \
+            --set-env-vars WEBHOOK_URL=${{ secrets.WEBHOOK_URL }} \
             --port 8080

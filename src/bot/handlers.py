@@ -25,13 +25,40 @@ async def audio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def _process_audio(update: Update, audio_file, file_type: str):
     """Processa áudio e envia para o workflow"""
     try:
-        await update.message.reply_text(PROCESSING_MESSAGE)
-        
-        # Download
+        # responder processamento
+        if update.message:
+            await update.message.reply_text(PROCESSING_MESSAGE)
+
+        # Se audio_file vier None, tentar encontrar em outros campos
+        message = update.message
+        if audio_file is None and message is not None:
+            # prioridade: voice, audio, document (se for audio)
+            if getattr(message, 'voice', None):
+                audio_file = message.voice
+                file_type = 'voice'
+            elif getattr(message, 'audio', None):
+                audio_file = message.audio
+                file_type = 'audio'
+            elif getattr(message, 'document', None):
+                doc = message.document
+                mime = getattr(doc, 'mime_type', '') or ''
+                if mime.startswith('audio'):
+                    audio_file = doc
+                    file_type = 'audio'
+
+        if audio_file is None:
+            # não há áudio no update
+            msg = 'Nenhum arquivo de áudio encontrado na mensagem.'
+            logger.error(msg)
+            if update.message:
+                await update.message.reply_text(format_error(msg))
+            return
+
+        # Download do arquivo
         file = await audio_file.get_file()
         ext = "ogg" if file_type == "voice" else "mp3"
         audio_path = f"data/audios/{file_type}_{update.message.message_id}.{ext}"
-        
+
         os.makedirs("data/audios", exist_ok=True)
         await file.download_to_drive(audio_path)
         
@@ -59,4 +86,5 @@ async def _process_audio(update: Update, audio_file, file_type: str):
     
     except Exception as e:
         logger.error(f"Erro ao processar áudio: {e}")
-        await update.message.reply_text(format_error(f"Erro: {str(e)}"))
+        if update.message:
+            await update.message.reply_text(format_error(f"Erro: {str(e)}"))
