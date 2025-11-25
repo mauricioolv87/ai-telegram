@@ -112,7 +112,7 @@ CARTÕES DE CRÉDITO DISPONÍVEIS:
 Extraia as seguintes informações e retorne APENAS um JSON válido (sem markdown):
 
 {{
-    "description": "descrição curta do gasto (máximo 30 caracteres)",
+    "description": "descrição curta do gasto (máximo 30 caracteres) sempre com a inicial maiúscula",
     "date": "data no formato YYYY-MM-DD",
     "amount_cents": valor em centavos negativo,
     "category_name": "nome da categoria mais apropriada da lista acima",

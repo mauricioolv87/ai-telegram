@@ -1,473 +1,153 @@
-# 🤖 Organizze Telegram Bot
+AI Telegram Bot
+================
 
-> Bot inteligente do Telegram que registra seus gastos no Organizze através de comandos de voz usando IA
+Bot que transcreve áudios, extrai informações de gastos e registra transações no Organizze.
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-green.svg)](https://openai.com/)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)](https://core.telegram.org/bots)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+Resumo
+------
+- Transcrição de áudio via OpenAI Whisper/OpenAI API.
+- Extração de dados (valor, descrição, data, categoria, forma de pagamento) via modelo.
+- Registro automático no Organizze.
+- Dois modos de operação:
+	- polling — para desenvolvimento local (bot busca atualizações via getUpdates)
+	- webhook — para produção (Telegram envia updates para um endpoint HTTPS)
 
-## 📋 Índice
+Principais arquivos
+-------------------
+- `main.py` — aplicação FastAPI + gerencia ciclo de vida do bot (lifespan). Suporta polling e webhook.
+- `src/config/settings.py` — carregamento de variáveis de ambiente e detecção automática de modo.
+- `src/bot/handlers.py` — handlers do Telegram (áudio, start, etc.).
+- `src/graph/*` — workflow (transcrição, extração, envio) e composição de mensagens.
+- `setup_webhook.py` — utilitário para configurar o webhook via API do Telegram (pode ser usado localmente).
 
-- [Sobre](#-sobre)
-- [Demonstração](#-demonstração)
-- [Funcionalidades](#-funcionalidades)
-- [Arquitetura](#-arquitetura)
-- [Pré-requisitos](#-pré-requisitos)
-- [Instalação](#-instalação)
-- [Configuração](#-configuração)
-- [Uso](#-uso)
-- [Estrutura do Projeto](#-estrutura-do-projeto)
-- [Testes](#-testes)
-- [Deploy](#-deploy)
-- [Contribuindo](#-contribuindo)
-- [Licença](#-licença)
+Requisitos
+----------
+- Python 3.11+
 
-## 🎯 Sobre
+Gerenciamento de dependências
+-----------------------------
+Este projeto usa `pyproject.toml` + `uv.lock` para gerenciar dependências e reproduzir builds. A ferramenta usada aqui é o `uv` (ver `https://docs.astral.sh/uv/`), que é o padrão para instalar a partir do lockfile e executar comandos reprodutíveis.
 
-O **Organizze Telegram Bot** é uma aplicação que utiliza inteligência artificial para facilitar o registro de gastos no [Organizze](https://www.organizze.com.br/). Basta enviar um áudio para o bot descrevendo seu gasto, e ele automaticamente:
+Recomendado (usar `uv`)
+```powershell
 
-1. 🎧 **Transcreve** o áudio usando Whisper (OpenAI)
-2. 🧠 **Extrai** informações estruturadas com GPT-4 (valor, descrição, data, tags)
-3. 💾 **Registra** a transação na sua conta Organizze
-4. ✅ **Confirma** o registro com feedback detalhado
+# instalar o utilitário 'uv' (se ainda não tiver)
+python -m pip install uv
 
-## 🎬 Demonstração
+# criar novo projeto
+uv init <nome-projeto>
 
-```
-Você: 🎤 [áudio] "Gastei cinquenta reais no supermercado hoje"
+# sincronizar dependências definidas em pyproject.toml/uv.lock
+uv sync
 
-Bot: 🎧 Processando seu áudio...
-
-     ✅ Transcrição: Gastei cinquenta reais no supermercado hoje
-
-     ✅ Dados extraídos:
-     💰 R$ 50,00
-     📝 Supermercado
-     📅 2025-11-13
-
-     ✅ Gasto registrado no Organizze!
+# executar a aplicação via runner 'uv'
+uv run main.py
 ```
 
-## ✨ Funcionalidades
+Observações:
+- `uv sync` instala dependências com base em `pyproject.toml` e `uv.lock`, garantindo versões reproduzíveis.
+- `uv run` é o runner usado no repositório (equivalente a `uvicorn` para este projeto).
 
-### 🎯 Principais
-
-- ✅ **Reconhecimento de Voz**: Aceita mensagens de voz e arquivos de áudio
-- ✅ **Extração Inteligente**: IA identifica valor, descrição, data e categorias automaticamente
-- ✅ **Processamento Natural**: Entende português brasileiro coloquial
-- ✅ **Tags Automáticas**: Categoriza gastos (alimentação, transporte, lazer, etc)
-- ✅ **Validação de Dados**: Verifica e formata informações antes de enviar
-- ✅ **Feedback Detalhado**: Mostra cada etapa do processamento
-
-### 🔧 Técnicas
-
-- 🏗️ **LangGraph**: Workflow modular e rastreável
-- 🎨 **Arquitetura Limpa**: Separação de responsabilidades
-- 📝 **Type Hints**: Código totalmente tipado
-- 🧪 **Testável**: Componentes isolados e mockáveis
-- 🔒 **Seguro**: Variáveis sensíveis em `.env`
-- 📊 **Logging**: Rastreamento completo de operações
-
-## 🏗️ Arquitetura
-
-O bot utiliza um workflow baseado em LangGraph com três nós principais:
-
-```mermaid
-graph LR
-    A[Áudio] --> B[Transcrição]
-    B --> C[Extração]
-    C --> D[Envio]
-    D --> E[Sucesso]
-    B -.Erro.-> F[Fim]
-    C -.Erro.-> F
-    D -.Erro.-> F
+Fallback (pip)
+```
+# Se preferir usar pip diretamente ou não tiver `uv` disponível:
+python -m pip install -U pip
+# se existir requirements.txt
+python -m pip install -r requirements.txt
+# ou instale manualmente o mínimo necessário
+python -m pip install fastapi python-telegram-bot python-dotenv httpx
 ```
 
-### Componentes
+Configuração (.env)
+--------------------
+Crie um arquivo `.env` na raiz com as variáveis:
 
-- **Bot Handler**: Recebe mensagens do Telegram
-- **Transcription Service**: Converte áudio em texto (Whisper)
-- **Extraction Service**: Extrai dados estruturados (GPT-4)
-- **Organizze Client**: Comunica com a API do Organizze
-- **LangGraph Workflow**: Orquestra todo o fluxo
+```
+TELEGRAM_BOT_TOKEN=...
+OPENAI_API_KEY=...
+ORGANIZZE_EMAIL=...
+ORGANIZZE_TOKEN=...
+# Opcional para deploy em produção (URL pública que o Telegram chamará)
+WEBHOOK_URL=https://your-domain/path-or-base
 
-## 📦 Pré-requisitos
+# Controle de modo (opcional)
+# BOT_MODE: 'auto' (default), 'polling' ou 'webhook'
+BOT_MODE=auto
+# RUN_ENV (influencia detecção automática). Use 'production' em deploy.
+RUN_ENV=development
 
-- Python 3.9 ou superior
-- Conta no [Telegram](https://telegram.org/)
-- Conta no [Organizze](https://www.organizze.com.br/)
-- API Key da [OpenAI](https://platform.openai.com/)
-
-## 🚀 Instalação
-
-### 1. Clone o Repositório
-
-```bash
-git clone https://github.com/seu-usuario/organizze-telegram-bot.git
-cd organizze-telegram-bot
+# Controla se o app tenta registrar webhook automaticamente no startup
+AUTO_SET_WEBHOOK=1
 ```
 
-### 2. Crie um Ambiente Virtual
+Observações sobre `WEBHOOK_URL`:
+- Se sua URL pública já inclui o caminho `/webhook`, você pode colocá-la completa em `WEBHOOK_URL`.
+- A aplicação não acrescenta `/webhook` automaticamente ao registrar o webhook — use a URL exata desejada.
 
-```bash
-python -m venv venv
+Modo de detecção (behavior)
+---------------------------
+- `BOT_MODE=auto` (padrão):
+	- Se `RUN_ENV` != `development` e `WEBHOOK_URL` estiver configurado → usa `webhook`.
+	- Caso contrário → usa `polling` (prático para desenvolvimento local).
+- Você pode forçar `BOT_MODE=polling` ou `BOT_MODE=webhook` para comportamento explícito.
 
-# Linux/Mac
-source venv/bin/activate
+Execução
+--------
+- Desenvolvimento (polling) — inicia o bot em background e o servidor FastAPI:
 
-# Windows
-venv\Scripts\activate
+```powershell
+# ativa virtualenv
+.\.venv\Scripts\Activate.ps1
+python main.py
+# ou com uvicorn
+uvicorn main:app --reload
 ```
 
-### 3. Instale as Dependências
+- Produção (webhook) — rode o app com `WEBHOOK_URL` configurado e `RUN_ENV=production`:
 
-```bash
-pip install -r requirements.txt
-```
-
-## ⚙️ Configuração
-
-### 1. Crie o Bot no Telegram
-
-1. Abra o Telegram e busque por [@BotFather](https://t.me/botfather)
-2. Envie o comando `/newbot`
-3. Siga as instruções e escolha um nome e username
-4. Copie o **token** fornecido
-
-### 2. Obtenha as Credenciais do Organizze
-
-1. Acesse [Organizze](https://www.organizze.com.br/)
-2. Faça login na sua conta
-3. Vá em **Configurações** → **API**
-4. Copie seu **email** e **token de acesso**
-
-📖 **Documentação da API**: https://github.com/organizze/api-doc
-
-### 3. Obtenha a API Key da OpenAI
-
-1. Acesse [OpenAI Platform](https://platform.openai.com/)
-2. Crie uma conta ou faça login
-3. Vá em **API Keys** e crie uma nova chave
-4. Copie a chave gerada
-
-### 4. Configure as Variáveis de Ambiente
-
-Crie um arquivo `.env` na raiz do projeto:
-
-```bash
-cp .env.example .env
-```
-
-Edite o arquivo `.env` com suas credenciais:
-
-```bash
-# Telegram
-TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
-
-# OpenAI
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx
-
-# Organizze
-ORGANIZZE_EMAIL=seu_email@example.com
-ORGANIZZE_TOKEN=seu_token_organizze_aqui
-```
-
-## 🎮 Uso
-
-### Iniciar o Bot
-
-```bash
+```powershell
+set RUN_ENV=production
+set WEBHOOK_URL=https://mydomain/path
+set BOT_MODE=webhook
 python main.py
 ```
 
-Você verá a mensagem:
-```
-🤖 Bot iniciado!
-```
+Webhook automático
+------------------
+- Ao iniciar em `webhook` mode a aplicação tentará registrar o webhook automaticamente usando a variável `AUTO_SET_WEBHOOK` (padrão `1`).
+- Se falhar (por exemplo URL não acessível no momento do startup), o erro será logado e você pode configurar manualmente:
 
-### Comandos Disponíveis
-
-| Comando | Descrição |
-|---------|-----------|
-| `/start` | Inicia o bot e mostra instruções |
-
-### Exemplos de Uso
-
-#### 📱 Envie um áudio com:
-
-**Simples:**
-```
-"Gastei cinquenta reais no mercado"
+```powershell
+curl -X GET http://<app-host>/set-webhook
 ```
 
-**Com data:**
-```
-"Paguei cento e vinte reais de academia dia quinze"
-```
-
-**Com detalhes:**
-```
-"Gastei trinta e cinco no Uber ontem à noite"
-```
-
-**Com forma de pagamento:**
-```
-"Almoço de quarenta e cinco reais pago no cartão"
-```
-
-#### 🤖 O bot responderá:
-
-```
-✅ Transcrição: Gastei cinquenta reais no mercado
-
-✅ Dados extraídos:
-💰 R$ 50,00
-📝 Mercado
-📅 2025-11-13
-
-✅ Gasto registrado no Organizze!
-```
-
-## 📁 Estrutura do Projeto
-
-```
-organizze-telegram-bot/
-│
-├── src/
-│   ├── bot/
-│   │   ├── handlers.py          # Handlers do Telegram
-│   │   └── messages.py          # Templates de mensagens
-│   │
-│   ├── graph/
-│   │   ├── workflow.py          # Definição do LangGraph
-│   │   ├── nodes.py             # Nós do grafo
-│   │   └── state.py             # Estado do grafo
-│   │
-│   ├── services/
-│   │   ├── transcription.py    # Serviço de transcrição
-│   │   ├── extraction.py       # Extração com LLM
-│   │   └── organizze.py        # Cliente da API
-│   │
-│   ├── models/
-│   │   └── expense.py          # Modelos de dados
-│   │
-│   └── config/
-│       └── settings.py         # Configurações
-│
-├── tests/                       # Testes unitários
-├── data/audios/                 # Áudios temporários
-├── .env                         # Variáveis de ambiente
-├── .gitignore
-├── requirements.txt
-├── main.py                      # Ponto de entrada
-└── README.md
-```
-
-## 🧪 Testes
-
-### Executar Todos os Testes
-
-```bash
-pytest
-```
-
-### Executar Testes Específicos
-
-```bash
-pytest tests/test_extraction.py
-```
-
-### Cobertura de Código
-
-```bash
-pytest --cov=src tests/
-```
-
-### Exemplo de Teste
-
-```python
-# tests/test_extraction.py
-from src.services.extraction import ExtractionService
-
-def test_extract_simple_expense():
-    service = ExtractionService()
-    result = service.extract("Gastei 50 reais no mercado")
-    
-    assert result.amount_cents == -5000
-    assert "mercado" in result.description.lower()
-    assert result.date is not None
-```
-
-## 🐳 Deploy
-
-### Docker
-
-**Dockerfile**
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-CMD ["python", "main.py"]
-```
-
-**docker-compose.yml**
-```yaml
-version: '3.8'
-
-services:
-  bot:
-    build: .
-    env_file: .env
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-```
-
-**Executar:**
-```bash
-docker-compose up -d
-```
-
-### Servidor (PM2)
-
-```bash
-# Instalar PM2
-npm install -g pm2
-
-# Iniciar bot
-pm2 start main.py --name organizze-bot --interpreter python3
-
-# Ver logs
-pm2 logs organizze-bot
-
-# Reiniciar
-pm2 restart organizze-bot
-```
-
-### Heroku
-
-```bash
-# Login
-heroku login
-
-# Criar app
-heroku create seu-bot-organizze
-
-# Configurar variáveis
-heroku config:set TELEGRAM_BOT_TOKEN=xxx
-heroku config:set OPENAI_API_KEY=xxx
-heroku config:set ORGANIZZE_EMAIL=xxx
-heroku config:set ORGANIZZE_TOKEN=xxx
-
-# Deploy
-git push heroku main
-```
-
-## 🛠️ Desenvolvimento
-
-### Adicionar Novo Comando
-
-1. Crie o handler em `src/bot/handlers.py`:
-```python
-async def balance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Sua lógica aqui
-    pass
-```
-
-2. Registre em `main.py`:
-```python
-application.add_handler(CommandHandler("balance", balance_handler))
-```
-
-### Adicionar Nova Extração
-
-Modifique `src/services/extraction.py` para adicionar novos campos ou lógica.
-
-### Adicionar Novo Serviço
-
-Crie um novo arquivo em `src/services/` seguindo o padrão dos existentes.
-
-## 🤝 Contribuindo
-
-Contribuições são bem-vindas! Siga estes passos:
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/NovaFeature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/NovaFeature`)
-5. Abra um Pull Request
-
-### Diretrizes
-
-- Mantenha o código limpo e bem documentado
-- Adicione testes para novas funcionalidades
-- Siga o PEP 8 (use `black` e `flake8`)
-- Atualize a documentação quando necessário
-
-## 🐛 Problemas Conhecidos
-
-- Áudios muito longos (>5min) podem falhar na transcrição
-- Valores com centavos precisam ser falados ("dez reais e cinquenta centavos")
-- Datas relativas além de ontem/hoje podem não ser interpretadas corretamente
-
-## 🗺️ Roadmap
-
-- [ ] Suporte a receitas (não apenas despesas)
-- [ ] Consultar saldo e extrato
-- [ ] Múltiplos idiomas
-- [ ] Interface web para configuração
-- [ ] Estatísticas e relatórios
-- [ ] Integração com outras plataformas financeiras
-- [ ] Comandos de texto (não apenas áudio)
-- [ ] Reconhecimento de fotos de notas fiscais
-
-## 📚 Recursos Úteis
-
-- [Documentação API Organizze](https://github.com/organizze/api-doc)
-- [Telegram Bot API](https://core.telegram.org/bots/api)
-- [OpenAI API](https://platform.openai.com/docs)
-- [LangGraph](https://langchain-ai.github.io/langgraph/)
-
-## 💬 Suporte
-
-Encontrou um bug? Tem uma sugestão?
-
-- 🐛 [Reportar Bug](https://github.com/seu-usuario/organizze-telegram-bot/issues)
-- 💡 [Solicitar Feature](https://github.com/seu-usuario/organizze-telegram-bot/issues)
-- 📧 Email: seu-email@example.com
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
-## 👨‍💻 Autor
-
-**Seu Nome**
-
-- GitHub: [@seu-usuario](https://github.com/seu-usuario)
-- LinkedIn: [Seu Perfil](https://linkedin.com/in/seu-perfil)
-- Email: seu-email@example.com
-
-## 🙏 Agradecimentos
-
-- [Organizze](https://www.organizze.com.br/) pela API aberta
-- [OpenAI](https://openai.com/) pelos modelos de IA
-- [Telegram](https://telegram.org/) pela plataforma de bots
-- Comunidade Python e Open Source
+Endpoints úteis
+---------------
+- `POST /webhook` — endpoint que recebe updates do Telegram (só ativo em modo `webhook`).
+- `GET /set-webhook` — registra o webhook via API do Telegram (só em modo `webhook`).
+- `GET /webhook-info` — informações sobre o webhook atual (só em modo `webhook`).
+- `DELETE /webhook` — remove o webhook remoto (só em modo `webhook`).
+- `GET /health` — health check.
+
+Desenvolvimento e testes
+------------------------
+- Para testar localmente prefira `polling` (modo padrão em dev). Basta iniciar o app e enviar mensagens/áudios para o bot via Telegram.
+- Logs detalhados mostram chamadas ao OpenAI e ao Organizze para depuração.
+
+Segurança
+--------
+- Nunca comite seu `.env` com tokens no repositório. Adicione `.env` ao `.gitignore`.
+- Tokens e chaves aparecem em variáveis de ambiente e não devem ser expostas.
+
+Ajuda e troubleshooting
+----------------------
+- Se `main.py` reclamar de dependências faltando, instale os pacotes listados acima.
+- Se o webhook não for registrado automaticamente, verifique se `WEBHOOK_URL` é acessível publicamente por HTTPS.
+- Para debug rápido, force `BOT_MODE=polling` localmente e verifique o fluxo de mensagens no terminal.
+
+Contribuições
+-------------
+Pull requests bem-vindos. Para mudanças grandes abra uma issue primeiro descrevendo a proposta.
 
 ---
-
-<div align="center">
-
-**⭐ Se este projeto foi útil, considere dar uma estrela! ⭐**
-
-Feito com ❤️ e ☕
-
-</div>
+README atualizado para refletir a versão atual da aplicação.
