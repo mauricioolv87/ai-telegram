@@ -2,6 +2,7 @@
 import os
 import asyncio
 import logging
+import functools
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException
@@ -87,6 +88,7 @@ app = FastAPI(
 def _require_webhook_mode(detail: str = "Este endpoint só está disponível em modo webhook"):
     """Decorator que bloqueia acesso ao endpoint se não estiver em modo webhook"""
     def decorator(func):
+        @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             if settings.bot_mode != 'webhook':
                 raise HTTPException(
