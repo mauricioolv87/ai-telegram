@@ -154,7 +154,8 @@ async def configure_webhook():
         )
     
     try:
-        full_webhook_url = f"{webhook_url.rstrip('/')}/webhook"
+        # Usar URL conforme fornecida (sem adicionar /webhook novamente)
+        full_webhook_url = webhook_url.rstrip('/')
         
         # Configurar webhook no Telegram
         await bot_application.bot.set_webhook(
