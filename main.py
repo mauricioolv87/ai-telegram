@@ -53,6 +53,28 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Polling iniciado com sucesso!")
     elif settings.bot_mode == 'webhook':
         logger.info(f"🔗 Webhook habilitado para produção. URL: {settings.webhook_url}")
+
+        # Tenta configurar o webhook automaticamente no startup.
+        # Controlável via variável de ambiente AUTO_SET_WEBHOOK (default: '1').
+        webhook_url = (settings.webhook_url or '').strip().rstrip('/')
+        auto_set = os.getenv('AUTO_SET_WEBHOOK', '1').lower() in ('1', 'true', 'yes')
+
+        if webhook_url and auto_set:
+            try:
+                logger.info(f"🔁 Tentando registrar webhook automaticamente: {webhook_url}")
+                await bot_application.bot.set_webhook(
+                    url=webhook_url,
+                    allowed_updates=["message", "callback_query"],
+                    drop_pending_updates=True
+                )
+                info = await bot_application.bot.get_webhook_info()
+                logger.info(f"✅ Webhook configurado automaticamente: {info.url}")
+            except Exception as e:
+                logger.error(f"❌ Falha ao configurar webhook automaticamente: {e}")
+                logger.info("Você pode configurar manualmente via endpoint /set-webhook")
+        else:
+            logger.info("Webhook automático desabilitado ou WEBHOOK_URL ausente; use /set-webhook")
+
         logger.info("✅ Bot preparado para receber webhooks!")
     else:
         logger.warning(f"⚠️ Modo desconhecido: {settings.bot_mode}")
