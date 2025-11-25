@@ -65,13 +65,32 @@ class Settings:
     # Diretórios
     audio_dir: str = "data/audios"
     
+    # Bot mode: 'polling' para desenvolvimento local, 'webhook' para produção
+    # 'auto' detecta baseado em RUN_ENV ou WEBHOOK_URL
+    bot_mode: str = "auto"
+    webhook_url: str = ""
+    
     @classmethod
     def from_env(cls):
+        mode = os.getenv('BOT_MODE', 'auto')
+        if mode == 'auto':
+            # detecta modo: webhook se WEBHOOK_URL está configurado E RUN_ENV != development
+            # caso contrário, usa polling
+            run_env = os.getenv('RUN_ENV', 'development').lower()
+            has_webhook_url = bool(os.getenv('WEBHOOK_URL', '').strip())
+            
+            if run_env != 'development' and has_webhook_url:
+                mode = 'webhook'
+            else:
+                mode = 'polling'
+        
         return cls(
             telegram_bot_token=os.getenv('TELEGRAM_BOT_TOKEN', ''),
             openai_api_key=os.getenv('OPENAI_API_KEY', ''),
             organizze_email=os.getenv('ORGANIZZE_EMAIL', ''),
             organizze_token=os.getenv('ORGANIZZE_TOKEN', ''),
+            bot_mode=mode,
+            webhook_url=os.getenv('WEBHOOK_URL', ''),
         )
     
     def validate(self):
@@ -83,5 +102,13 @@ class Settings:
         ]
         if not all(required):
             raise ValueError("Todas as variáveis de ambiente são obrigatórias!")
+        
+        # Validar modo
+        if self.bot_mode not in ('polling', 'webhook', 'auto'):
+            raise ValueError(f"BOT_MODE inválido: {self.bot_mode}. Use 'polling', 'webhook' ou 'auto'")
+        
+        # Se webhook, WEBHOOK_URL deve estar configurado
+        if self.bot_mode == 'webhook' and not self.webhook_url:
+            raise ValueError("WEBHOOK_URL deve estar configurado quando bot_mode='webhook'")
 
 settings = Settings.from_env()

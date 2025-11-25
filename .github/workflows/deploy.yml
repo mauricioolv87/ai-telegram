@@ -47,4 +47,5 @@ jobs:
             --set-env-vars ORGANIZZE_TOKEN=${{ secrets.ORGANIZZE_TOKEN }} \
             --set-env-vars ORGANIZZE_EMAIL=${{ secrets.ORGANIZZE_EMAIL }} \
             --set-env-vars WEBHOOK_URL=${{ secrets.WEBHOOK_URL }} \
+            --set-env-vars RUN_ENV=${{ secrets.RUN_ENV }} \
             --port 8080
